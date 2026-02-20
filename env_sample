@@ -1,0 +1,25 @@
+# ── Source environment ────────────────────────────────────────────────────────
+SOURCE_IDCS_HOST=idcs-GUID.identity.oraclecloud.com
+SOURCE_CLIENT_ID=CLIENT_ID
+SOURCE_CLIENT_SECRET=
+SOURCE_SCOPE=https://GUID.integration.ocp.oraclecloud.com:443urn:opc:resource:consumer::all
+SOURCE_OIC_HOST=instancename-ia.integration.ocp.oraclecloud.com
+
+# ── Target environment ────────────────────────────────────────────────────────
+TARGET_IDCS_HOST=<target-idcs-host>
+TARGET_CLIENT_ID=<target-client-id>
+TARGET_CLIENT_SECRET=<target-client-secret>
+TARGET_SCOPE=<target-scope>
+TARGET_OIC_HOST=<target-oic-host>
+
+# ── Sync behaviour ────────────────────────────────────────────────────────────
+# Activate the integration in target if it was ACTIVATED in source
+ACTIVATE_ON_DEPLOY=true
+
+# Optional: path to a file listing integration IDs to sync (one per line).
+# Lines starting with # are treated as comments.
+# Leave empty to sync all integrations.
+# Example file contents:
+#   MY_INTEGRATION_A|01.00.0000
+#   MY_INTEGRATION_B|02.01.0000
+INTEGRATIONS_FILE=
