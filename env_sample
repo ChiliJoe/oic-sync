@@ -14,7 +14,7 @@ TARGET_OIC_HOST=<target-oic-host>
 
 # ── Sync behaviour ────────────────────────────────────────────────────────────
 # Activate the integration in target if it was ACTIVATED in source
-ACTIVATE_ON_DEPLOY=true
+ACTIVATE_ON_DEPLOY=false
 
 # Optional: path to a file listing integration IDs to sync (one per line).
 # Lines starting with # are treated as comments.
