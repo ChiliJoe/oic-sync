@@ -75,8 +75,11 @@ python oic_sync.py --yes
 | `TARGET_SCOPE` | Yes | — | OAuth scope for target |
 | `TARGET_OIC_HOST` | Yes | — | OIC host for target |
 | `ACTIVATE_ON_DEPLOY` | No | `false` | Activate integration in target if it was ACTIVATED in source |
+| `DRY_RUN` | No | `false` | Preview changes without deploying (env var alternative to `--dry-run`) |
+| `VERIFY_SSL` | No | `true` | SSL certificate verification (`false` to disable) |
 | `INTEGRATIONS_FILE` | No | _(empty)_ | Path to a file listing integration IDs to sync (one per line) |
 | `EXCLUSION_FILE` | No | _(empty)_ | Path to a file listing integration IDs to exclude from sync (one per line) |
+| `OUTPUT_DIR` | No | `.` | Directory for log and plan output files |
 
 ### INTEGRATIONS_FILE format
 
@@ -116,7 +119,7 @@ For each integration in source:
 
 ### Output files
 
-Each run writes two timestamped files to the working directory:
+Each run writes two timestamped files to `OUTPUT_DIR` (default: current directory):
 
 - **`oic-sync-YYYYMMDDHHMMSS.log`** — full run log including stdout output. The final line summarises the run:
 
