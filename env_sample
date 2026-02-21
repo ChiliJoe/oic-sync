@@ -31,3 +31,7 @@ INTEGRATIONS_FILE=
 #   MY_TEST_INTEGRATION|01.00.0000
 #   MY_DEPRECATED_FLOW|03.00.0000
 EXCLUSION_FILE=
+
+# Directory for log and plan output files (default: current directory)
+# Set to /tmp when running as an OCI Function
+OUTPUT_DIR=

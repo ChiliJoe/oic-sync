@@ -75,8 +75,11 @@ python oic_sync.py --yes
 | `TARGET_SCOPE` | Yes | — | OAuth scope for target |
 | `TARGET_OIC_HOST` | Yes | — | OIC host for target |
 | `ACTIVATE_ON_DEPLOY` | No | `false` | Activate integration in target if it was ACTIVATED in source |
+| `DRY_RUN` | No | `false` | Preview changes without deploying (env var alternative to `--dry-run`) |
+| `VERIFY_SSL` | No | `true` | SSL certificate verification (`false` to disable) |
 | `INTEGRATIONS_FILE` | No | _(empty)_ | Path to a file listing integration IDs to sync (one per line) |
 | `EXCLUSION_FILE` | No | _(empty)_ | Path to a file listing integration IDs to exclude from sync (one per line) |
+| `OUTPUT_DIR` | No | `.` | Directory for log and plan output files |
 
 ### INTEGRATIONS_FILE format
 
@@ -133,3 +136,56 @@ Exit code is `0` on success, `1` if any integration failed (suitable for cron al
 ```cron
 0 2 * * * /usr/bin/python3 /path/to/oic_sync.py --yes --background >> /var/log/oic_sync.log 2>&1
 ```
+
+---
+
+## OCI Function deployment
+
+### Requirements
+
+- [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm) and [Fn CLI](https://fnproject.io/tutorials/install/) installed and configured
+- An OCI Function application already created
+
+### Deploy
+
+```sh
+fn deploy --app <your-app-name>
+```
+
+### Configuration items
+
+Set the following via the OCI Console (**Functions → your app → your function → Configuration**) or via the Fn CLI:
+
+All variables from the table above apply. Key ones for OCI Function context:
+
+| Variable | Notes |
+| --- | --- |
+| `SOURCE_*` / `TARGET_*` | Required — same as local usage |
+| `DRY_RUN` | Set to `true` for a safe first test invocation |
+| `VERIFY_SSL` | Defaults to `true`; set to `false` only if needed |
+| `INTEGRATIONS_FILE` | Object name in the OCI bucket (e.g. `my-integrations.txt`) — downloaded to `/tmp/` before sync. Requires `OCI_BUCKET_NAME` + `OCI_NAMESPACE`. |
+| `EXCLUSION_FILE` | Object name in the OCI bucket (e.g. `exclusions.txt`) — downloaded to `/tmp/` before sync. Requires `OCI_BUCKET_NAME` + `OCI_NAMESPACE`. |
+| `OCI_NAMESPACE` + `OCI_BUCKET_NAME` | Required when `INTEGRATIONS_FILE` or `EXCLUSION_FILE` is set. Also used to upload log and plan files after each run. |
+| `OUTPUT_DIR` | Defaults to `/tmp` in the function (set automatically by `func.py`) |
+
+### Invoke
+
+```sh
+fn invoke <your-app-name> oic-sync
+```
+
+The function returns a JSON response:
+
+```json
+{
+  "status": "ok",
+  "synced": 5,
+  "skipped": 12,
+  "failed": 0,
+  "pending": 5,
+  "log_file": "/tmp/oic-sync-20260222120000.log",
+  "plan_file": "/tmp/sync-plan-20260222120000.txt"
+}
+```
+
+Possible `status` values: `ok`, `failed`, `dry_run`, `nothing_to_deploy`, `aborted`, `error`.
