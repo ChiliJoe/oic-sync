@@ -76,16 +76,31 @@ python oic_sync.py --yes
 | `TARGET_OIC_HOST` | Yes | — | OIC host for target |
 | `ACTIVATE_ON_DEPLOY` | No | `false` | Activate integration in target if it was ACTIVATED in source |
 | `INTEGRATIONS_FILE` | No | _(empty)_ | Path to a file listing integration IDs to sync (one per line) |
+| `EXCLUSION_FILE` | No | _(empty)_ | Path to a file listing integration IDs to exclude from sync (one per line) |
 
 ### INTEGRATIONS_FILE format
+
+One integration ID per line. Lines starting with `#` are ignored. Duplicate entries are silently deduplicated (first occurrence wins).
+
+```text
+# Sync only these integrations — deployed in this order
+MY_INTEGRATION_A|01.00.0000
+MY_INTEGRATION_B|02.01.0000
+```
+
+When `INTEGRATIONS_FILE` is set, integrations are deployed in the order they appear in the file. Use this to control dependency sequencing (e.g. deploy a shared connection before the integrations that depend on it).
+
+### EXCLUSION_FILE format
 
 One integration ID per line. Lines starting with `#` are ignored.
 
 ```text
-# Sync only these integrations
-MY_INTEGRATION_A|01.00.0000
-MY_INTEGRATION_B|02.01.0000
+# Never sync these integrations
+MY_TEST_INTEGRATION|01.00.0000
+MY_DEPRECATED_FLOW|03.00.0000
 ```
+
+When both `INTEGRATIONS_FILE` and `EXCLUSION_FILE` are set, the exclusion list is applied after the inclusion filter — an integration must be in the inclusion list AND not in the exclusion list to be synced.
 
 ### Sync logic
 

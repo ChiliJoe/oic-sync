@@ -23,3 +23,11 @@ ACTIVATE_ON_DEPLOY=false
 #   MY_INTEGRATION_A|01.00.0000
 #   MY_INTEGRATION_B|02.01.0000
 INTEGRATIONS_FILE=
+
+# Optional: path to a file listing integration IDs to exclude from sync (one per line).
+# Lines starting with # are treated as comments.
+# Leave empty to not exclude any integrations.
+# Example file contents:
+#   MY_TEST_INTEGRATION|01.00.0000
+#   MY_DEPRECATED_FLOW|03.00.0000
+EXCLUSION_FILE=

@@ -224,20 +224,43 @@ class OICClient:
 # Utilities
 # ---------------------------------------------------------------------------
 
-def load_integrations_file(path: str | None) -> set[str] | None:
-    """Load allowed integration IDs from a file. Returns None if no file configured."""
+def load_integrations_file(path: str | None) -> list[str] | None:
+    """Load allowed integration IDs from a file. Returns None if no file configured.
+
+    Preserves line order (used as deployment sequence) and deduplicates,
+    keeping the first occurrence of any repeated ID.
+    """
     if not path:
         return None
     p = Path(path)
     if not p.exists():
         logger.error("INTEGRATIONS_FILE not found: %s", path)
         sys.exit(1)
-    ids = set()
+    seen: set[str] = set()
+    ids: list[str] = []
+    for line in p.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and line not in seen:
+            ids.append(line)
+            seen.add(line)
+    logger.info("Loaded %d integration ID(s) from %s", len(ids), path)
+    return ids
+
+
+def load_exclusion_file(path: str | None) -> set[str] | None:
+    """Load excluded integration IDs from a file. Returns None if no file configured."""
+    if not path:
+        return None
+    p = Path(path)
+    if not p.exists():
+        logger.error("EXCLUSION_FILE not found: %s", path)
+        sys.exit(1)
+    ids: set[str] = set()
     for line in p.read_text().splitlines():
         line = line.strip()
         if line and not line.startswith("#"):
             ids.add(line)
-    logger.info("Loaded %d integration ID(s) from %s", len(ids), path)
+    logger.info("Loaded %d exclusion ID(s) from %s", len(ids), path)
     return ids
 
 
@@ -248,7 +271,8 @@ def load_integrations_file(path: str | None) -> set[str] | None:
 def collect_pending(
     source: OICClient,
     target: OICClient,
-    allowed_ids: set[str] | None,
+    allowed_ids: list[str] | None,
+    excluded_ids: set[str] | None = None,
     show_progress: bool = True,
 ) -> tuple[list[dict], int]:
     """
@@ -264,6 +288,7 @@ def collect_pending(
 
     pending = []
     skipped = 0
+    allowed_set = set(allowed_ids) if allowed_ids is not None else None
 
     with logging_redirect_tqdm():
         for integration in tqdm(source_integrations, desc="Planning", unit="integration", disable=not show_progress):
@@ -276,8 +301,13 @@ def collect_pending(
                 skipped += 1
                 continue
 
-            if allowed_ids is not None and int_id not in allowed_ids:
+            if allowed_set is not None and int_id not in allowed_set:
                 logger.debug("SKIP [%s] — not in integrations file", int_id)
+                skipped += 1
+                continue
+
+            if excluded_ids is not None and int_id in excluded_ids:
+                logger.debug("SKIP [%s] — in exclusion file", int_id)
                 skipped += 1
                 continue
 
@@ -318,6 +348,11 @@ def collect_pending(
                 "target_ts": target_ts,
                 "action": ", ".join(action_parts),
             })
+
+    if allowed_ids is not None and pending:
+        order = {id_: i for i, id_ in enumerate(allowed_ids)}
+        pending.sort(key=lambda p: order.get(p["id"], len(allowed_ids)))
+        logger.info("Deployment order follows INTEGRATIONS_FILE sequence")
 
     return pending, skipped
 
@@ -476,6 +511,8 @@ def main() -> int:
     activate_on_deploy = args.activate or os.getenv("ACTIVATE_ON_DEPLOY", "false").strip().lower() == "true"
     integrations_file = os.getenv("INTEGRATIONS_FILE", "").strip() or None
     allowed_ids = load_integrations_file(integrations_file)
+    exclusion_file = os.getenv("EXCLUSION_FILE", "").strip() or None
+    excluded_ids = load_exclusion_file(exclusion_file)
 
     mode = "DRY RUN" if args.dry_run else "SYNC"
     logger.info("=== OIC %s started ===", mode)
@@ -485,11 +522,13 @@ def main() -> int:
     logger.info("SSL verification: %s", args.verify_ssl)
     if allowed_ids is not None:
         logger.info("Filtering to %d integration(s) from file", len(allowed_ids))
+    if excluded_ids is not None:
+        logger.info("Excluding %d integration(s) from file", len(excluded_ids))
 
     show_progress = not args.background
 
     # --- Phase 1: plan ---
-    pending, skipped = collect_pending(source, target, allowed_ids, show_progress=show_progress)
+    pending, skipped = collect_pending(source, target, allowed_ids, excluded_ids=excluded_ids, show_progress=show_progress)
     print_plan(pending, activate_on_deploy, plan_file=PLAN_FILE)
     logger.info("Sync plan written to %s", PLAN_FILE)
 

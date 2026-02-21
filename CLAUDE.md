@@ -43,6 +43,7 @@ Wraps the OIC REST API for one environment. Holds a `BearerAuthSession`, manages
 - `urllib3` InsecureRequestWarning is suppressed automatically when `verify_ssl=False`
 - OAuth2 tokens have a 30-second expiry buffer in `_refresh_token()`
 - Timeouts: 30s for most calls, 120s for archive download/upload
+- `EXCLUSION_FILE` env var: optional path to a file of integration IDs to skip; applied after `INTEGRATIONS_FILE` filter
 - Log files written to `oic-sync-YYYYMMDDHHMMSS.log` in the working directory
 - Plan file written to `sync-plan-YYYYMMDDHHMMSS.txt` in the working directory (mirrors the table printed to stdout)
 - Exit code: 0 = success (including skips), 1 = any failures occurred
