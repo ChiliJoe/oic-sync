@@ -136,3 +136,9 @@ Exit code is `0` on success, `1` if any integration failed (suitable for cron al
 ```cron
 0 2 * * * /usr/bin/python3 /path/to/oic_sync.py --yes --background >> /var/log/oic_sync.log 2>&1
 ```
+
+---
+
+## OCI Function deployment
+
+See the [`deployment/ocifn`](https://github.com/ChiliJoe/oic-sync/tree/deployment/ocifn) branch for deployment as an OCI Function, including `func.py`, `func.yaml`, OCI Vault secret resolution, and IAM policy requirements.
