@@ -8,6 +8,9 @@ Required configuration items:
     SOURCE_IDCS_HOST, SOURCE_CLIENT_ID, SOURCE_CLIENT_SECRET, SOURCE_SCOPE, SOURCE_OIC_HOST
     TARGET_IDCS_HOST, TARGET_CLIENT_ID, TARGET_CLIENT_SECRET, TARGET_SCOPE, TARGET_OIC_HOST
 
+    SOURCE_CLIENT_SECRET / TARGET_CLIENT_SECRET may also be an OCI Vault secret
+    OCID (ocid1.vaultsecret...) — the plaintext secret is fetched at runtime.
+
 Optional configuration items:
     ACTIVATE_ON_DEPLOY   (true/false, default: false)
     DRY_RUN              (true/false, default: false)
@@ -27,6 +30,7 @@ import os
 import fdk.response as fdk_response  # type: ignore[import-untyped]
 
 import oci_storage
+import oci_vault
 import oic_sync
 
 _REQUIRED_VARS = [
@@ -78,15 +82,23 @@ def handler(ctx, data: io.BytesIO = None): # pyright: ignore[reportArgumentType]
             exclusion_file = f"/tmp/{exclusion_obj}"
             oci_storage.download(namespace, bucket, exclusion_obj, exclusion_file)
 
+        src_secret = os.environ["SOURCE_CLIENT_SECRET"]
+        if oci_vault.is_vault_ocid(src_secret):
+            src_secret = oci_vault.fetch_secret(src_secret)
+
+        tgt_secret = os.environ["TARGET_CLIENT_SECRET"]
+        if oci_vault.is_vault_ocid(tgt_secret):
+            tgt_secret = oci_vault.fetch_secret(tgt_secret)
+
         result = oic_sync.run_sync(
             source_idcs_host=os.environ["SOURCE_IDCS_HOST"],
             source_client_id=os.environ["SOURCE_CLIENT_ID"],
-            source_client_secret=os.environ["SOURCE_CLIENT_SECRET"],
+            source_client_secret=src_secret,
             source_scope=os.environ["SOURCE_SCOPE"],
             source_oic_host=os.environ["SOURCE_OIC_HOST"],
             target_idcs_host=os.environ["TARGET_IDCS_HOST"],
             target_client_id=os.environ["TARGET_CLIENT_ID"],
-            target_client_secret=os.environ["TARGET_CLIENT_SECRET"],
+            target_client_secret=tgt_secret,
             target_scope=os.environ["TARGET_SCOPE"],
             target_oic_host=os.environ["TARGET_OIC_HOST"],
             activate_on_deploy=os.getenv("ACTIVATE_ON_DEPLOY", "false").lower() == "true",
@@ -103,7 +115,9 @@ def handler(ctx, data: io.BytesIO = None): # pyright: ignore[reportArgumentType]
             for key in ("log_file", "plan_file"):
                 file_path = result.get(key, "")
                 if file_path and os.path.exists(file_path):
-                    oci_storage.upload(namespace, bucket, os.path.basename(file_path), file_path)
+                    object_name = os.path.basename(file_path)
+                    oci_storage.upload(namespace, bucket, object_name, file_path)
+                    result[key] = f"oci://{namespace}/{bucket}/{object_name}"
 
         return fdk_response.Response(
             ctx,

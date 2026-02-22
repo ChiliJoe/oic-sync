@@ -66,12 +66,12 @@ python oic_sync.py --yes
 | --- | --- | --- | --- |
 | `SOURCE_IDCS_HOST` | Yes | — | IDCS host for the source environment |
 | `SOURCE_CLIENT_ID` | Yes | — | OAuth client ID for source |
-| `SOURCE_CLIENT_SECRET` | Yes | — | OAuth client secret for source |
+| `SOURCE_CLIENT_SECRET` | Yes | — | OAuth client secret for source (or OCI Vault secret OCID) |
 | `SOURCE_SCOPE` | Yes | — | OAuth scope for source |
 | `SOURCE_OIC_HOST` | Yes | — | OIC host for source |
 | `TARGET_IDCS_HOST` | Yes | — | IDCS host for the target environment |
 | `TARGET_CLIENT_ID` | Yes | — | OAuth client ID for target |
-| `TARGET_CLIENT_SECRET` | Yes | — | OAuth client secret for target |
+| `TARGET_CLIENT_SECRET` | Yes | — | OAuth client secret for target (or OCI Vault secret OCID) |
 | `TARGET_SCOPE` | Yes | — | OAuth scope for target |
 | `TARGET_OIC_HOST` | Yes | — | OIC host for target |
 | `ACTIVATE_ON_DEPLOY` | No | `false` | Activate integration in target if it was ACTIVATED in source |
@@ -146,6 +146,38 @@ Exit code is `0` on success, `1` if any integration failed (suitable for cron al
 - [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm) and [Fn CLI](https://fnproject.io/tutorials/install/) installed and configured
 - An OCI Function application already created
 
+### IAM policies
+
+The function uses Resource Principal auth. You need a dynamic group that matches the function and policies that grant access to the OCI services it uses.
+
+#### 1. Create a dynamic group
+
+```hcl
+ALL {resource.type = 'fnfunc', resource.compartment.id = '<function-compartment-ocid>'}
+```
+
+#### 2. Grant required permissions
+
+Object Storage — required when `INTEGRATIONS_FILE`, `EXCLUSION_FILE`, or log/plan upload is used (`OCI_BUCKET_NAME` + `OCI_NAMESPACE` are set):
+
+```text
+Allow dynamic-group <dynamic-group-name> to manage objects in compartment <compartment-name>
+    where target.bucket.name = '<bucket-name>'
+```
+
+OCI Vault — required when `SOURCE_CLIENT_SECRET` or `TARGET_CLIENT_SECRET` is a vault secret OCID:
+
+```text
+Allow dynamic-group <dynamic-group-name> to read secret-bundle in compartment <compartment-name>
+```
+
+To restrict access to a specific vault:
+
+```text
+Allow dynamic-group <dynamic-group-name> to read secret-bundle in compartment <compartment-name>
+    where target.vault.id = '<vault-ocid>'
+```
+
 ### Deploy
 
 ```sh
@@ -167,6 +199,7 @@ All variables from the table above apply. Key ones for OCI Function context:
 | `EXCLUSION_FILE` | Object name in the OCI bucket (e.g. `exclusions.txt`) — downloaded to `/tmp/` before sync. Requires `OCI_BUCKET_NAME` + `OCI_NAMESPACE`. |
 | `OCI_NAMESPACE` + `OCI_BUCKET_NAME` | Required when `INTEGRATIONS_FILE` or `EXCLUSION_FILE` is set. Also used to upload log and plan files after each run. |
 | `OUTPUT_DIR` | Defaults to `/tmp` in the function (set automatically by `func.py`) |
+| `SOURCE_CLIENT_SECRET` / `TARGET_CLIENT_SECRET` | Can be a plaintext secret **or** an OCI Vault secret OCID (`ocid1.vaultsecret...`). When an OCID is detected the function fetches the secret at runtime using Resource Principal auth. The function's dynamic group must have `read secret-bundle` (or `manage secret-family`) permission on the vault. |
 
 ### Invoke
 
@@ -183,9 +216,11 @@ The function returns a JSON response:
   "skipped": 12,
   "failed": 0,
   "pending": 5,
-  "log_file": "/tmp/oic-sync-20260222120000.log",
-  "plan_file": "/tmp/sync-plan-20260222120000.txt"
+  "log_file": "oci://<namespace>/<bucket>/oic-sync-20260222120000.log",
+  "plan_file": "oci://<namespace>/<bucket>/sync-plan-20260222120000.txt"
 }
 ```
+
+When `OCI_BUCKET_NAME` and `OCI_NAMESPACE` are set, `log_file` and `plan_file` are replaced with `oci://<namespace>/<bucket>/<object>` URIs after upload. Otherwise they remain `/tmp/` paths local to the function container.
 
 Possible `status` values: `ok`, `failed`, `dry_run`, `nothing_to_deploy`, `aborted`, `error`.

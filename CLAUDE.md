@@ -33,9 +33,10 @@ Two entry points, shared core logic:
 - **`oic_sync.py`** — all sync logic plus CLI entry point (`main()`). Can also be imported.
 - **`func.py`** — thin OCI Function handler; reads config from env vars, downloads filter files from OCI bucket, calls `run_sync()`, uploads output files to OCI bucket.
 - **`oci_storage.py`** — OCI Object Storage helpers (`upload`, `download`). Used only by `func.py`. Resource Principal auth first, falls back to OCI config file.
+- **`oci_vault.py`** — OCI Vault helpers (`is_vault_ocid`, `fetch_secret`). Used only by `func.py`. Resource Principal auth first, falls back to OCI config file.
 - **`func.yaml`** — OCI Function metadata (runtime, entrypoint, memory, timeout).
 
-Dependencies: `requests`, `python-dotenv`, `tqdm`, `fdk` (OCI Functions), `oci` (Object Storage).
+Dependencies: `requests`, `python-dotenv`, `tqdm`, `fdk` (OCI Functions), `oci` (Object Storage, Vault).
 
 **`BearerAuthSession`** (before `OICClient`)
 Subclass of `requests.Session` that injects `Authorization: Bearer` on every request — including redirect targets — replicating `curl --location-trusted`. SSL verification and TLS warnings are controlled per-instance via `verify_ssl`.
@@ -56,8 +57,9 @@ Wraps the OIC REST API for one environment. Holds a `BearerAuthSession`, manages
 
 1. Validates required env vars; returns 400 on missing.
 2. If `INTEGRATIONS_FILE` or `EXCLUSION_FILE` is set, validates that `OCI_BUCKET_NAME` + `OCI_NAMESPACE` are also set (returns 400 if not), then downloads the objects to `/tmp/` via `oci_storage.download()`.
-3. Calls `run_sync()` with the local `/tmp/` paths.
-4. If `OCI_BUCKET_NAME` + `OCI_NAMESPACE` are set, uploads log and plan files via `oci_storage.upload()`.
+3. If `SOURCE_CLIENT_SECRET` or `TARGET_CLIENT_SECRET` is an OCI Vault secret OCID, fetches the plaintext secret via `oci_vault.fetch_secret()`.
+4. Calls `run_sync()` with the local `/tmp/` paths.
+5. If `OCI_BUCKET_NAME` + `OCI_NAMESPACE` are set, uploads log and plan files via `oci_storage.upload()`.
 
 **Key implementation details:**
 
@@ -73,3 +75,4 @@ Wraps the OIC REST API for one environment. Holds a `BearerAuthSession`, manages
 - Log files written to `oic-sync-YYYYMMDDHHMMSS.log` in `OUTPUT_DIR` (default: working directory)
 - Plan file written to `sync-plan-YYYYMMDDHHMMSS.txt` in `OUTPUT_DIR` (mirrors the table printed to stdout)
 - Exit code: 0 = success (including skips), 1 = any failures occurred
+- `SOURCE_CLIENT_SECRET` / `TARGET_CLIENT_SECRET` accept OCI Vault secret OCIDs (`ocid1.vaultsecret.`); vault resolution happens in `func.py` via `oci_vault.py` (OCI Function only)
