@@ -240,3 +240,19 @@ class OICClient:
         url = f"{self._resource_url('packages')}/{name}"
         resp = self._session.delete(url, timeout=30)
         self._check_response(resp, f"delete package {name}")
+
+    # ------------------------------------------------------------------
+    # Libraries
+    # ------------------------------------------------------------------
+
+    def list_libraries(self) -> list[dict]:
+        """Return all libraries (handles pagination)."""
+        self._ensure_token()
+        return self._paginate(self._resource_url("libraries"), has_more_key="hasMore", operation="list libraries")
+
+    def delete_library(self, library_id: str) -> None:
+        """Delete a library by ID."""
+        self._ensure_token()
+        url = f"{self._resource_url('libraries')}/{library_id}"
+        resp = self._session.delete(url, timeout=30)
+        self._check_response(resp, f"delete library {library_id}")

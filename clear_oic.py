@@ -120,6 +120,22 @@ def _delete_packages(client: OICClient, packages: list[dict], show_progress: boo
     return deleted, failed
 
 
+def _delete_libraries(client: OICClient, libraries: list[dict], show_progress: bool) -> tuple[int, int]:
+    """Delete each library. Returns (deleted, failed)."""
+    deleted = failed = 0
+    with logging_redirect_tqdm():
+        for item in tqdm(libraries, desc="Deleting libraries", unit="library", disable=not show_progress):
+            lib_id = item.get("id", "")
+            try:
+                logger.info("Deleting library [%s]...", lib_id)
+                client.delete_library(lib_id)
+                deleted += 1
+            except Exception as exc:
+                logger.warning("SKIP library [%s] — %s", lib_id, exc)
+                failed += 1
+    return deleted, failed
+
+
 def run_clear(
     client: OICClient,
     dry_run: bool = False,
@@ -132,7 +148,7 @@ def run_clear(
     Returns a result dict:
         {
             "status": "ok" | "failed" | "dry_run" | "aborted" | "nothing_to_delete",
-            "integrations_deleted": int, "connections_deleted": int,
+            "integrations_deleted": int, "libraries_deleted": int, "connections_deleted": int,
             "lookups_deleted": int, "packages_deleted": int,
             "failed": int,
         }
@@ -158,7 +174,11 @@ def run_clear(
     packages = client.list_packages()
     logger.info("Found %d package(s).", len(packages))
 
-    total = len(integrations) + len(connections) + len(lookups) + len(packages)
+    logger.info("Listing libraries...")
+    libraries = client.list_libraries()
+    logger.info("Found %d library(ies).", len(libraries))
+
+    total = len(integrations) + len(connections) + len(lookups) + len(packages) + len(libraries)
 
     # --- Summary ---
     col = 20
@@ -166,6 +186,7 @@ def run_clear(
     print(f"  {'Resource':<{col}}  Count")
     print(f"  {'-' * col}  -----")
     print(f"  {'Integrations':<{col}}  {len(integrations)}")
+    print(f"  {'Libraries':<{col}}  {len(libraries)}")
     print(f"  {'Connections':<{col}}  {len(connections)}")
     print(f"  {'Lookups':<{col}}  {len(lookups)}")
     print(f"  {'Packages':<{col}}  {len(packages)}")
@@ -175,7 +196,7 @@ def run_clear(
         logger.info("=== Nothing to delete. ===")
         return {
             "status": "nothing_to_delete",
-            "integrations_deleted": 0, "connections_deleted": 0,
+            "integrations_deleted": 0, "libraries_deleted": 0, "connections_deleted": 0,
             "lookups_deleted": 0, "packages_deleted": 0, "failed": 0,
         }
 
@@ -184,7 +205,7 @@ def run_clear(
         logger.info("=== Dry run complete — %d resource(s) would be deleted ===", total)
         return {
             "status": "dry_run",
-            "integrations_deleted": 0, "connections_deleted": 0,
+            "integrations_deleted": 0, "libraries_deleted": 0, "connections_deleted": 0,
             "lookups_deleted": 0, "packages_deleted": 0, "failed": 0,
         }
 
@@ -200,36 +221,39 @@ def run_clear(
             logger.info("Aborted.")
             return {
                 "status": "aborted",
-                "integrations_deleted": 0, "connections_deleted": 0,
+                "integrations_deleted": 0, "libraries_deleted": 0, "connections_deleted": 0,
                 "lookups_deleted": 0, "packages_deleted": 0, "failed": 0,
             }
 
-    # --- Delete (in order: integrations → connections → lookups → packages) ---
+    # --- Delete (in order: integrations → libraries → connections → lookups → packages) ---
     int_deleted, int_failed = _delete_integrations(client, integrations, show_progress)
+    lib_deleted, lib_failed = _delete_libraries(client, libraries, show_progress)
     con_deleted, con_failed = _delete_connections(client, connections, show_progress)
     lkp_deleted, lkp_failed = _delete_lookups(client, lookups, show_progress)
     pkg_deleted, pkg_failed = _delete_packages(client, packages, show_progress)
 
-    total_failed = int_failed + con_failed + lkp_failed + pkg_failed
+    total_failed = int_failed + lib_failed + con_failed + lkp_failed + pkg_failed
 
     # --- Report ---
     print()
     print(f"  {'Resource':<{col}}  Deleted  Failed")
     print(f"  {'-' * col}  -------  ------")
     print(f"  {'Integrations':<{col}}  {int_deleted:<7}  {int_failed}")
+    print(f"  {'Libraries':<{col}}  {lib_deleted:<7}  {lib_failed}")
     print(f"  {'Connections':<{col}}  {con_deleted:<7}  {con_failed}")
     print(f"  {'Lookups':<{col}}  {lkp_deleted:<7}  {lkp_failed}")
     print(f"  {'Packages':<{col}}  {pkg_deleted:<7}  {pkg_failed}")
     print()
 
     logger.info(
-        "=== OIC Clear complete — integrations: %d, connections: %d, lookups: %d, packages: %d, failed: %d ===",
-        int_deleted, con_deleted, lkp_deleted, pkg_deleted, total_failed,
+        "=== OIC Clear complete — integrations: %d, libraries: %d, connections: %d, lookups: %d, packages: %d, failed: %d ===",
+        int_deleted, lib_deleted, con_deleted, lkp_deleted, pkg_deleted, total_failed,
     )
 
     return {
         "status": "failed" if total_failed else "ok",
         "integrations_deleted": int_deleted,
+        "libraries_deleted": lib_deleted,
         "connections_deleted": con_deleted,
         "lookups_deleted": lkp_deleted,
         "packages_deleted": pkg_deleted,
