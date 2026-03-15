@@ -145,7 +145,7 @@ def collect_pending(
     skipped = 0
     allowed_set = set(allowed_ids) if allowed_ids is not None else None
 
-    with logging_redirect_tqdm():
+    with logging_redirect_tqdm(loggers=[logger]):
         for integration in tqdm(source_integrations, desc="Planning", unit="integration", disable=not show_progress):
             int_id = integration["id"]
             source_status = integration.get("status", "CONFIGURED")
@@ -257,7 +257,7 @@ def deploy_pending(
     """
     synced = failed = 0
 
-    with logging_redirect_tqdm():
+    with logging_redirect_tqdm(loggers=[logger]):
         for item in tqdm(pending, desc="Deploying", unit="integration", disable=not show_progress):
             int_id = item["id"]
             exists = item["exists_in_target"]

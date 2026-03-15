@@ -55,7 +55,7 @@ def _setup_logging() -> None:
 def _delete_integrations(client: OICClient, integrations: list[dict], show_progress: bool) -> tuple[int, int]:
     """Deactivate then delete each integration. Returns (deleted, failed)."""
     deleted = failed = 0
-    with logging_redirect_tqdm():
+    with logging_redirect_tqdm(loggers=[logger]):
         for item in tqdm(integrations, desc="Deleting integrations", unit="integration", disable=not show_progress):
             int_id = item["id"]
             status = item.get("status", "CONFIGURED")
@@ -75,7 +75,7 @@ def _delete_integrations(client: OICClient, integrations: list[dict], show_progr
 def _delete_connections(client: OICClient, connections: list[dict], show_progress: bool) -> tuple[int, int]:
     """Delete each connection. Returns (deleted, failed)."""
     deleted = failed = 0
-    with logging_redirect_tqdm():
+    with logging_redirect_tqdm(loggers=[logger]):
         for item in tqdm(connections, desc="Deleting connections", unit="connection", disable=not show_progress):
             conn_id = item.get("id") or item.get("name", "")
             try:
@@ -91,7 +91,7 @@ def _delete_connections(client: OICClient, connections: list[dict], show_progres
 def _delete_lookups(client: OICClient, lookups: list[dict], show_progress: bool) -> tuple[int, int]:
     """Delete each lookup. Returns (deleted, failed)."""
     deleted = failed = 0
-    with logging_redirect_tqdm():
+    with logging_redirect_tqdm(loggers=[logger]):
         for item in tqdm(lookups, desc="Deleting lookups", unit="lookup", disable=not show_progress):
             name = item.get("name", "")
             try:
@@ -107,7 +107,7 @@ def _delete_lookups(client: OICClient, lookups: list[dict], show_progress: bool)
 def _delete_packages(client: OICClient, packages: list[dict], show_progress: bool) -> tuple[int, int]:
     """Delete each package. Returns (deleted, failed)."""
     deleted = failed = 0
-    with logging_redirect_tqdm():
+    with logging_redirect_tqdm(loggers=[logger]):
         for item in tqdm(packages, desc="Deleting packages", unit="package", disable=not show_progress):
             name = item.get("name", "")
             try:
@@ -123,7 +123,7 @@ def _delete_packages(client: OICClient, packages: list[dict], show_progress: boo
 def _delete_libraries(client: OICClient, libraries: list[dict], show_progress: bool) -> tuple[int, int]:
     """Delete each library. Returns (deleted, failed)."""
     deleted = failed = 0
-    with logging_redirect_tqdm():
+    with logging_redirect_tqdm(loggers=[logger]):
         for item in tqdm(libraries, desc="Deleting libraries", unit="library", disable=not show_progress):
             lib_id = item.get("id", "")
             try:
